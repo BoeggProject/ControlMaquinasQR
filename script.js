@@ -12,9 +12,9 @@ const campo = document.getElementById("idMaquina");
 
 console.log("Campo encontrado:", campo);
 
-campo.value = idMaquina || "Sin ID";
+campo.textContent = idMaquina || "Sin ID";
 
-console.log("Valor final:", campo.value);
+console.log("Valor final:", campo.textContent);
 
 
 // ===============================

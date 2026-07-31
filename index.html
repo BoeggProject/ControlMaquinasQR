@@ -1,27 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Control de Máquinas</title>
+
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+
 <body>
 
-<div class="container">
+    <div class="container">
 
-    <h1>Control de Máquinas</h1>
+        <h1>Control de Máquinas</h1>
 
-    <label>ID Máquina</label>
-    <input type="text" id="idMaquina" readonly>
+        <div class="subtitle">
+            Registro de parámetros
+        </div>
 
-    <label>Temperatura (°C)</label>
-    <input type="number" id="temperatura">
 
-    <label>% Humedad</label>
-    <input type="number" id="humedad">
+        <!-- ===============================
+             ID DE LA MÁQUINA
+        ================================ -->
 
-    <label>% L</label>
-    <input type="number" id="porcentajeL">
+        <div class="machine-box">
 
-    <button id="btnEnviar">
-        Enviar
-    </button>
+            <span class="machine-label">
+                MÁQUINA
+            </span>
 
-</div>
+            <span
+                class="machine-id"
+                id="idMaquina">
+                ---
+            </span>
 
-<script type="module" src="script.js"></script>
+        </div>
+
+
+        <!-- ===============================
+             TEMPERATURA
+        ================================ -->
+
+        <div class="field">
+
+            <label for="temperatura">
+                Temperatura
+            </label>
+
+            <div class="input-wrapper">
+
+                <input
+                    type="number"
+                    id="temperatura"
+                    placeholder="Ej. 25">
+
+                <span class="unit">
+                    °C
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- ===============================
+             HUMEDAD
+        ================================ -->
+
+        <div class="field">
+
+            <label for="humedad">
+                Humedad
+            </label>
+
+            <div class="input-wrapper">
+
+                <input
+                    type="number"
+                    id="humedad"
+                    placeholder="Ej. 60">
+
+                <span class="unit">
+                    %
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- ===============================
+             %L
+        ================================ -->
+
+        <div class="field">
+
+            <label for="porcentajeL">
+                %L
+            </label>
+
+            <div class="input-wrapper">
+
+                <input
+                    type="number"
+                    id="porcentajeL"
+                    placeholder="Ej. 80">
+
+                <span class="unit">
+                    %
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- ===============================
+             BOTÓN ENVIAR
+        ================================ -->
+
+        <button id="btnEnviar">
+            Enviar datos
+        </button>
+
+
+    </div>
+
+
+    <!-- ===============================
+         JAVASCRIPT
+    ================================ -->
+
+    <script
+        type="module"
+        src="script.js">
+    </script>
+
 
 </body>
+
+</html>
