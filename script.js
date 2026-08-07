@@ -21,13 +21,16 @@ console.log("Valor final:", campo.textContent);
 // FIREBASE
 // ===============================
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+    initializeApp
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 
 import {
     getDatabase,
     ref,
     push,
-    set
+    set,
+    get
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 
@@ -49,21 +52,295 @@ console.log("Firebase conectado correctamente");
 
 
 // ===============================
-// BOTÓN ENVIAR
+// ELEMENTOS
 // ===============================
 
 const boton = document.getElementById("btnEnviar");
 
-boton.addEventListener("click", () => {
+const botonHistorial =
+    document.getElementById("btnHistorial");
 
-    const temperaturaInput = document.getElementById("temperatura");
-    const humedadInput = document.getElementById("humedad");
-    const porcentajeLInput = document.getElementById("porcentajeL");
+const historial =
+    document.getElementById("historial");
+
+const listaHistorial =
+    document.getElementById("listaHistorial");
+
+const temperaturaInput =
+    document.getElementById("temperatura");
+
+const humedadInput =
+    document.getElementById("humedad");
+
+const porcentajeLInput =
+    document.getElementById("porcentajeL");
 
 
-    const temperatura = Number(temperaturaInput.value);
-    const humedad = Number(humedadInput.value);
-    const porcentajeL = Number(porcentajeLInput.value);
+// ===============================
+// MENSAJE DE CONFIRMACIÓN
+// ===============================
+
+function mostrarMensaje(mensaje) {
+
+    const mensajeAnterior =
+        document.getElementById("mensajeExito");
+
+    if (mensajeAnterior) {
+        mensajeAnterior.remove();
+    }
+
+
+    const mensajeExito =
+        document.createElement("div");
+
+    mensajeExito.id = "mensajeExito";
+
+    mensajeExito.innerHTML = `
+        <span>✓</span>
+        ${mensaje}
+    `;
+
+
+    boton.parentNode.insertBefore(
+        mensajeExito,
+        boton
+    );
+
+
+    setTimeout(() => {
+
+        mensajeExito.style.opacity = "0";
+
+        setTimeout(() => {
+
+            mensajeExito.remove();
+
+        }, 300);
+
+    }, 2500);
+
+}
+
+
+// ===============================
+// MOSTRAR HISTORIAL
+// ===============================
+
+async function cargarHistorial() {
+
+    if (!idMaquina) {
+
+        listaHistorial.innerHTML = `
+            <p class="sin-registros">
+                No hay ID de máquina.
+            </p>
+        `;
+
+        return;
+
+    }
+
+
+    // Mostrar mensaje de carga
+
+    listaHistorial.innerHTML = `
+        <p class="cargando">
+            ⏳ Cargando historial...
+        </p>
+    `;
+
+
+    // ===============================
+    // REFERENCIA FIREBASE
+    // ===============================
+
+    const registrosRef = ref(
+        database,
+        "maquinas/" + idMaquina + "/registros"
+    );
+
+
+    try {
+
+        console.log(
+            "Buscando registros de:",
+            idMaquina
+        );
+
+
+        const snapshot =
+            await get(registrosRef);
+
+
+        // ===============================
+        // NO HAY REGISTROS
+        // ===============================
+
+        if (!snapshot.exists()) {
+
+            listaHistorial.innerHTML = `
+                <p class="sin-registros">
+                    No hay registros para ${idMaquina}.
+                </p>
+            `;
+
+            return;
+
+        }
+
+
+        // ===============================
+        // OBTENER DATOS
+        // ===============================
+
+        const datos = snapshot.val();
+
+        console.log(
+            "Registros encontrados:",
+            datos
+        );
+
+
+        // Convertir objeto a arreglo
+
+        const registros =
+            Object.values(datos);
+
+
+        // Los últimos registros primero
+
+        registros.reverse();
+
+
+        // Solo los últimos 5
+
+        const ultimosRegistros =
+            registros.slice(0, 5);
+
+
+        // Limpiar historial
+
+        listaHistorial.innerHTML = "";
+
+
+        // ===============================
+        // CREAR TARJETAS
+        // ===============================
+
+        ultimosRegistros.forEach((registro) => {
+
+            const tarjeta =
+                document.createElement("div");
+
+            tarjeta.className = "registro";
+
+
+            const porcentajeL =
+                registro.porcentajeL ??
+                registro.luminosidad ??
+                "-";
+
+
+            tarjeta.innerHTML = `
+
+                <div class="registro-header">
+
+                    <span>
+                        📅 ${registro.fecha || "-"}
+                    </span>
+
+                    <span>
+                        🕒 ${registro.hora || "-"}
+                    </span>
+
+                </div>
+
+
+                <div class="registro-body">
+
+
+                    <div class="fila">
+
+                        <strong>
+                            🌡 Temperatura
+                        </strong>
+
+                        <span>
+                            ${registro.temperatura ?? "-"} °C
+                        </span>
+
+                    </div>
+
+
+                    <div class="fila">
+
+                        <strong>
+                            💧 Humedad
+                        </strong>
+
+                        <span>
+                            ${registro.humedad ?? "-"} %
+                        </span>
+
+                    </div>
+
+
+                    <div class="fila">
+
+                        <strong>
+                            📊 %L
+                        </strong>
+
+                        <span>
+                            ${porcentajeL} %
+                        </span>
+
+                    </div>
+
+
+                </div>
+
+            `;
+
+
+            listaHistorial.appendChild(tarjeta);
+
+        });
+
+
+    } catch (error) {
+
+        console.error(
+            "Error al cargar historial:",
+            error
+        );
+
+
+        listaHistorial.innerHTML = `
+            <p class="sin-registros">
+                Error al cargar el historial.
+            </p>
+        `;
+
+    }
+
+}
+
+
+// ===============================
+// BOTÓN ENVIAR
+// ===============================
+
+boton.addEventListener("click", async () => {
+
+    const temperatura =
+        Number(temperaturaInput.value);
+
+    const humedad =
+        Number(humedadInput.value);
+
+    const porcentajeL =
+        Number(porcentajeLInput.value);
 
 
     // ===============================
@@ -77,6 +354,7 @@ boton.addEventListener("click", () => {
     ) {
 
         alert("Completa todos los campos");
+
         return;
 
     }
@@ -89,6 +367,7 @@ boton.addEventListener("click", () => {
     if (!idMaquina) {
 
         alert("No hay ID de máquina");
+
         return;
 
     }
@@ -99,7 +378,10 @@ boton.addEventListener("click", () => {
     // ===============================
 
     const registro = push(
-        ref(database, "maquinas/" + idMaquina + "/registros")
+        ref(
+            database,
+            "maquinas/" + idMaquina + "/registros"
+        )
     );
 
 
@@ -110,38 +392,161 @@ boton.addEventListener("click", () => {
     const ahora = new Date();
 
 
-    // ===============================
-    // GUARDAR EN FIREBASE
-    // ===============================
+    try {
 
-    set(registro, {
+        // ===============================
+        // GUARDAR EN FIREBASE
+        // ===============================
 
-        idMaquina: idMaquina,
+        await set(registro, {
 
-        temperatura: temperatura,
+            idMaquina: idMaquina,
 
-        humedad: humedad,
+            temperatura: temperatura,
 
-        porcentajeL: porcentajeL,
+            humedad: humedad,
 
-        fecha: ahora.toLocaleDateString("es-MX"),
+            porcentajeL: porcentajeL,
 
-        hora: ahora.toLocaleTimeString("es-MX")
+            fecha: ahora.toLocaleDateString("es-MX"),
 
-    })
+            hora: ahora.toLocaleTimeString("es-MX")
 
-    .then(() => {
+        });
 
-        alert("Datos enviados correctamente");
 
-    })
+        console.log("Datos guardados correctamente");
 
-    .catch((error) => {
 
-        console.error("Error:", error);
+        // ===============================
+        // LIMPIAR CAMPOS
+        // ===============================
 
-        alert("Error al enviar datos");
+        temperaturaInput.value = "";
 
-    });
+        humedadInput.value = "";
+
+        porcentajeLInput.value = "";
+
+
+        // ===============================
+        // MENSAJE BONITO
+        // ===============================
+
+        mostrarMensaje(
+            "Datos enviados correctamente"
+        );
+
+
+        // ===============================
+        // ACTUALIZAR HISTORIAL
+        // ===============================
+
+        if (
+            historial.style.display === "block"
+        ) {
+
+            await cargarHistorial();
+
+        }
+
+
+        // Regresar al primer campo
+
+        temperaturaInput.focus();
+
+
+    } catch (error) {
+
+        console.error(
+            "Error:",
+            error
+        );
+
+
+        alert(
+            "Error al enviar los datos"
+        );
+
+    }
 
 });
+
+
+// ===============================
+// BOTÓN VER HISTORIAL
+// ===============================
+
+botonHistorial.addEventListener(
+    "click",
+    async () => {
+
+        console.log(
+            "Botón historial presionado"
+        );
+
+
+        // Mostrar sección
+
+        historial.style.display =
+            "block";
+
+
+        // Cargar historial
+
+        await cargarHistorial();
+
+    }
+);
+
+
+// ===============================
+// ENTER ENTRE CAMPOS
+// ===============================
+
+temperaturaInput.addEventListener(
+    "keydown",
+    (event) => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            humedadInput.focus();
+
+        }
+
+    }
+);
+
+
+humedadInput.addEventListener(
+    "keydown",
+    (event) => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            porcentajeLInput.focus();
+
+        }
+
+    }
+);
+
+
+porcentajeLInput.addEventListener(
+    "keydown",
+    (event) => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            boton.click();
+
+        }
+
+    }
+);
