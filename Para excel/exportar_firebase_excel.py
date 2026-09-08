@@ -1,5 +1,7 @@
 import urllib.request
 import json
+import os
+import shutil
 from datetime import datetime, timedelta
 from openpyxl import load_workbook
 
@@ -10,9 +12,11 @@ from openpyxl import load_workbook
 
 URL_FIREBASE = "https://piloto-614ca-default-rtdb.firebaseio.com/maquinas.json"
 
-ARCHIVO_EXCEL = "Control_Maquinas_Semanal.xlsx"
+ARCHIVO_PLANTILLA = "Control_Maquinas_Semanal.xlsx"
 
-ARCHIVO_SALIDA = "Control_Maquinas_Semanal_actualizado.xlsx"
+ARCHIVO_PRUEBA_ANTERIOR = "Control_Maquinas_Semanal_actualizado.xlsx"
+
+ARCHIVO_HISTORICO = "Control_Maquinas_Historico.xlsx"
 
 
 # =========================================================
@@ -33,27 +37,15 @@ dias = {
 # =========================================================
 # COLUMNAS DEL EXCEL
 # =========================================================
-#
-# LUNES      B C D
-# MARTES     E F G
-# MIERCOLES  H I J
-# JUEVES     K L M
-# VIERNES    N O P
-# SABADO     Q R S
-# DOMINGO    T U V
-#
-# Cada día:
-# °C | %H | %L
-# =========================================================
 
 columnas_dias = {
-    0: 2,
-    1: 5,
-    2: 8,
-    3: 11,
-    4: 14,
-    5: 17,
-    6: 20
+    0: 2,   # Lunes
+    1: 5,   # Martes
+    2: 8,   # Miércoles
+    3: 11,  # Jueves
+    4: 14,  # Viernes
+    5: 17,  # Sábado
+    6: 20   # Domingo
 }
 
 
@@ -69,21 +61,15 @@ def convertir_fecha_hora(registro):
     if not fecha_texto:
         return None
 
+    fecha = None
 
-    # -----------------------------------------------------
-    # FORMATO ACTUAL
-    #
-    # 5/8/2026
-    # -----------------------------------------------------
-
-    formatos_fecha = [
+    # Fecha normal
+    formatos = [
         "%d/%m/%Y",
         "%d/%m/%y"
     ]
 
-    fecha = None
-
-    for formato in formatos_fecha:
+    for formato in formatos:
 
         try:
 
@@ -98,12 +84,7 @@ def convertir_fecha_hora(registro):
             pass
 
 
-    # -----------------------------------------------------
-    # FORMATO ANTIGUO ISO
-    #
-    # 2026-07-31T18:30:10.348Z
-    # -----------------------------------------------------
-
+    # Fecha ISO antigua
     if fecha is None:
 
         try:
@@ -124,24 +105,10 @@ def convertir_fecha_hora(registro):
             return None
 
 
-    # -----------------------------------------------------
-    # SI NO HAY HORA
-    # -----------------------------------------------------
-
+    # Si no hay hora
     if not hora_texto:
-
         return fecha
 
-
-    # -----------------------------------------------------
-    # LIMPIAR HORA
-    #
-    # Ejemplo:
-    # 4:09:42 p.m.
-    #
-    # Lo convertimos a:
-    # 4:09:42 PM
-    # -----------------------------------------------------
 
     hora_limpia = hora_texto.lower()
 
@@ -158,10 +125,7 @@ def convertir_fecha_hora(registro):
     hora_limpia = hora_limpia.strip()
 
 
-    # -----------------------------------------------------
-    # INTENTAR CON HORA AM / PM
-    # -----------------------------------------------------
-
+    # Hora AM / PM
     try:
 
         hora = datetime.strptime(
@@ -180,10 +144,7 @@ def convertir_fecha_hora(registro):
         pass
 
 
-    # -----------------------------------------------------
-    # INTENTAR HORA 24 HORAS
-    # -----------------------------------------------------
-
+    # Hora 24 horas
     try:
 
         hora = datetime.strptime(
@@ -206,7 +167,103 @@ def convertir_fecha_hora(registro):
 
 
 # =========================================================
-# CONECTAR CON FIREBASE
+# NOMBRE DE UNA SEMANA
+# =========================================================
+
+def nombre_semana(inicio, fin):
+
+    meses = [
+        "Ene",
+        "Feb",
+        "Mar",
+        "Abr",
+        "May",
+        "Jun",
+        "Jul",
+        "Ago",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dic"
+    ]
+
+    mes_inicio = meses[
+        inicio.month - 1
+    ]
+
+    mes_fin = meses[
+        fin.month - 1
+    ]
+
+
+    if inicio.month == fin.month:
+
+        return (
+            f"{inicio.day:02d}-"
+            f"{fin.day:02d} "
+            f"{mes_inicio}"
+        )
+
+    return (
+        f"{inicio.day:02d} "
+        f"{mes_inicio}-"
+        f"{fin.day:02d} "
+        f"{mes_fin}"
+    )
+
+
+# =========================================================
+# OBTENER SEMANA ACTUAL
+# =========================================================
+
+hoy = datetime.now()
+
+inicio_semana = hoy - timedelta(
+    days=hoy.weekday()
+)
+
+inicio_semana = inicio_semana.replace(
+    hour=0,
+    minute=0,
+    second=0,
+    microsecond=0
+)
+
+fin_semana = inicio_semana + timedelta(
+    days=6,
+    hours=23,
+    minutes=59,
+    seconds=59
+)
+
+nombre_hoja_actual = nombre_semana(
+    inicio_semana,
+    fin_semana
+)
+
+
+# =========================================================
+# SEMANA ANTERIOR
+# =========================================================
+
+inicio_semana_anterior = (
+    inicio_semana - timedelta(days=7)
+)
+
+fin_semana_anterior = (
+    inicio_semana - timedelta(
+        seconds=1
+    )
+)
+
+nombre_hoja_anterior = nombre_semana(
+    inicio_semana_anterior,
+    fin_semana_anterior
+)
+
+
+# =========================================================
+# ENCABEZADO
 # =========================================================
 
 print()
@@ -215,6 +272,24 @@ print("   EXPORTADOR FIREBASE -> EXCEL")
 print("==========================================")
 print()
 
+print(
+    "Semana actual:",
+    inicio_semana.strftime("%d/%m/%Y"),
+    "-",
+    fin_semana.strftime("%d/%m/%Y")
+)
+
+print(
+    "Hoja actual:",
+    nombre_hoja_actual
+)
+
+
+# =========================================================
+# CONECTAR FIREBASE
+# =========================================================
+
+print()
 print("Conectando con Firebase...")
 
 
@@ -239,38 +314,47 @@ except Exception as error:
     exit()
 
 
-print("Firebase conectado correctamente.")
+print(
+    "Firebase conectado correctamente."
+)
 
 
 # =========================================================
-# COMPROBAR FIREBASE
+# CREAR HISTÓRICO SI NO EXISTE
 # =========================================================
 
-if not datos_firebase:
+if not os.path.exists(
+    ARCHIVO_HISTORICO
+):
 
     print()
-    print("No existen máquinas en Firebase.")
+    print(
+        "Creando archivo histórico..."
+    )
 
-    input("\nPresiona Enter para cerrar...")
-    exit()
+    shutil.copy2(
+        ARCHIVO_PLANTILLA,
+        ARCHIVO_HISTORICO
+    )
 
 
 # =========================================================
-# ABRIR EXCEL
+# ABRIR HISTÓRICO
 # =========================================================
 
 try:
 
     wb = load_workbook(
-        ARCHIVO_EXCEL
+        ARCHIVO_HISTORICO
     )
-
-    ws = wb.active
 
 except Exception as error:
 
     print()
-    print("ERROR al abrir el Excel:")
+    print(
+        "ERROR al abrir el histórico:"
+    )
+
     print(error)
 
     input("\nPresiona Enter para cerrar...")
@@ -278,42 +362,137 @@ except Exception as error:
 
 
 # =========================================================
-# SEMANA ACTUAL
+# RECUPERAR SEMANA ANTERIOR DE LA PRUEBA
+# =========================================================
+#
+# Esto se ejecuta solamente si:
+#
+# - existe Control_Maquinas_Semanal_actualizado.xlsx
+# - todavía no existe la hoja anterior
+#
+# Así recuperamos nuestra prueba 03-09 Ago.
 # =========================================================
 
-hoy = datetime.now()
+if (
+    os.path.exists(ARCHIVO_PRUEBA_ANTERIOR)
+    and
+    nombre_hoja_anterior not in wb.sheetnames
+):
 
-inicio_semana = hoy - timedelta(
-    days=hoy.weekday()
-)
+    print()
+    print(
+        "Se encontró el Excel de prueba anterior."
+    )
 
-inicio_semana = inicio_semana.replace(
-    hour=0,
-    minute=0,
-    second=0,
-    microsecond=0
-)
-
-
-fin_semana = inicio_semana + timedelta(
-    days=6,
-    hours=23,
-    minutes=59,
-    seconds=59
-)
+    print(
+        "Recuperando semana:",
+        nombre_hoja_anterior
+    )
 
 
-print()
-print(
-    "Semana:",
-    inicio_semana.strftime("%d/%m/%Y"),
-    "-",
-    fin_semana.strftime("%d/%m/%Y")
-)
+    try:
+
+        wb_prueba = load_workbook(
+            ARCHIVO_PRUEBA_ANTERIOR
+        )
+
+        ws_prueba = wb_prueba.active
+
+
+        # Crear hoja copiando la plantilla
+        if wb.sheetnames:
+
+            hoja_base = wb[
+                wb.sheetnames[0]
+            ]
+
+            ws_anterior = wb.copy_worksheet(
+                hoja_base
+            )
+
+            ws_anterior.title = (
+                nombre_hoja_anterior
+            )
+
+
+            # Copiar valores de la prueba
+            for fila in range(
+                1,
+                ws_prueba.max_row + 1
+            ):
+
+                for columna in range(
+                    1,
+                    ws_prueba.max_column + 1
+                ):
+
+                    origen = ws_prueba.cell(
+                        fila,
+                        columna
+                    )
+
+                    destino = ws_anterior.cell(
+                        fila,
+                        columna
+                    )
+
+                    destino.value = origen.value
+
+
+            print(
+                "Semana anterior recuperada correctamente."
+            )
+
+    except Exception as error:
+
+        print(
+            "No se pudo recuperar la semana anterior:"
+        )
+
+        print(error)
 
 
 # =========================================================
-# BUSCAR FILAS DEL EXCEL
+# CREAR / OBTENER HOJA ACTUAL
+# =========================================================
+
+if nombre_hoja_actual in wb.sheetnames:
+
+    print()
+    print(
+        "La hoja actual ya existe."
+    )
+
+    print(
+        "Se actualizará."
+    )
+
+    ws = wb[
+        nombre_hoja_actual
+    ]
+
+else:
+
+    print()
+    print(
+        "Creando hoja:",
+        nombre_hoja_actual
+    )
+
+
+    hoja_base = wb[
+        wb.sheetnames[0]
+    ]
+
+    ws = wb.copy_worksheet(
+        hoja_base
+    )
+
+    ws.title = nombre_hoja_actual
+
+
+# =========================================================
+# BUSCAR MÁQUINAS EN EXCEL
 # =========================================================
 
 filas_maquinas = {}
@@ -348,12 +527,10 @@ print(
 
 
 # =========================================================
-# CONTADORES
+# CONTADOR
 # =========================================================
 
 total_actualizados = 0
-
-total_ignoradas = 0
 
 
 # =========================================================
@@ -364,14 +541,14 @@ for id_maquina, informacion in datos_firebase.items():
 
     print()
     print("------------------------------------------")
-    print("Máquina:", id_maquina)
+    print(
+        "Máquina:",
+        id_maquina
+    )
     print("------------------------------------------")
 
 
-    # -----------------------------------------------------
-    # COMPROBAR SI EXISTE EN EL EXCEL
-    # -----------------------------------------------------
-
+    # Máquina no existente en Excel
     if id_maquina not in filas_maquinas:
 
         print(
@@ -401,18 +578,7 @@ for id_maquina, informacion in datos_firebase.items():
 
 
     # =====================================================
-    # GUARDAR REGISTROS POR DÍA
-    # =====================================================
-    #
-    # Ejemplo:
-    #
-    # MIÉRCOLES:
-    #   registro 1
-    #   registro 2
-    #   registro 3
-    #
-    # Al final solamente conservaremos
-    # el MÁS RECIENTE.
+    # ÚLTIMO REGISTRO DE CADA DÍA
     # =====================================================
 
     registros_por_dia = {}
@@ -424,6 +590,7 @@ for id_maquina, informacion in datos_firebase.items():
             registro,
             dict
         ):
+
             continue
 
 
@@ -434,18 +601,10 @@ for id_maquina, informacion in datos_firebase.items():
 
         if fecha_hora is None:
 
-            print(
-                "  Registro con fecha no reconocida:",
-                registro_id
-            )
-
             continue
 
 
-        # -------------------------------------------------
-        # COMPROBAR SI PERTENECE A ESTA SEMANA
-        # -------------------------------------------------
-
+        # Solo semana actual
         if fecha_hora < inicio_semana:
             continue
 
@@ -456,16 +615,16 @@ for id_maquina, informacion in datos_firebase.items():
         dia_semana = fecha_hora.weekday()
 
 
-        # -------------------------------------------------
-        # COMPROBAR SI YA HAY UN REGISTRO ESE DÍA
-        # -------------------------------------------------
-
-        registro_anterior = registros_por_dia.get(
+        anterior = registros_por_dia.get(
             dia_semana
         )
 
 
-        if registro_anterior is None:
+        if (
+            anterior is None
+            or
+            fecha_hora > anterior[0]
+        ):
 
             registros_por_dia[
                 dia_semana
@@ -474,33 +633,10 @@ for id_maquina, informacion in datos_firebase.items():
                 registro
             )
 
-        else:
-
-            fecha_anterior = registro_anterior[0]
-
-
-            # ---------------------------------------------
-            # SOLO REEMPLAZAR SI ES MÁS RECIENTE
-            # ---------------------------------------------
-
-            if fecha_hora > fecha_anterior:
-
-                registros_por_dia[
-                    dia_semana
-                ] = (
-                    fecha_hora,
-                    registro
-                )
-
 
     # =====================================================
-    # ESCRIBIR RESULTADOS EN EXCEL
+    # NO HAY REGISTROS ESTA SEMANA
     # =====================================================
-
-    fila_excel = filas_maquinas[
-        id_maquina
-    ]
-
 
     if not registros_por_dia:
 
@@ -511,6 +647,15 @@ for id_maquina, informacion in datos_firebase.items():
         continue
 
 
+    # =====================================================
+    # ESCRIBIR
+    # =====================================================
+
+    fila_excel = filas_maquinas[
+        id_maquina
+    ]
+
+
     for dia_semana, datos in registros_por_dia.items():
 
         fecha_hora = datos[0]
@@ -518,19 +663,15 @@ for id_maquina, informacion in datos_firebase.items():
         registro = datos[1]
 
 
-        nombre_dia = dias[
-            dia_semana
-        ]
-
-
         columna = columnas_dias[
             dia_semana
         ]
 
 
-        # -------------------------------------------------
-        # TEMPERATURA
-        # -------------------------------------------------
+        nombre_dia = dias[
+            dia_semana
+        ]
+
 
         temperatura = registro.get(
             "temperatura",
@@ -538,30 +679,18 @@ for id_maquina, informacion in datos_firebase.items():
         )
 
 
-        # -------------------------------------------------
-        # HUMEDAD
-        # -------------------------------------------------
-
         humedad = registro.get(
             "humedad",
             ""
         )
 
 
-        # -------------------------------------------------
-        # %L
-        #
-        # Aceptamos los dos nombres:
-        #
-        # porcentajeL
-        # luminosidad
-        # -------------------------------------------------
-
         porcentajeL = registro.get(
             "porcentajeL"
         )
 
 
+        # Compatibilidad con datos antiguos
         if porcentajeL is None:
 
             porcentajeL = registro.get(
@@ -570,10 +699,7 @@ for id_maquina, informacion in datos_firebase.items():
             )
 
 
-        # -------------------------------------------------
-        # ESCRIBIR EN EXCEL
-        # -------------------------------------------------
-
+        # Escribir
         ws.cell(
             row=fila_excel,
             column=columna
@@ -592,19 +718,11 @@ for id_maquina, informacion in datos_firebase.items():
         ).value = porcentajeL
 
 
-        # -------------------------------------------------
-        # MOSTRAR RESULTADO
-        # -------------------------------------------------
-
         print()
 
         print(
             "  Día:",
             nombre_dia
-        )
-
-        print(
-            "  Registros seleccionados: 1"
         )
 
         print(
@@ -629,20 +747,34 @@ for id_maquina, informacion in datos_firebase.items():
 
 
 # =========================================================
-# GUARDAR ARCHIVO
+# GUARDAR
 # =========================================================
 
 try:
 
     wb.save(
-        ARCHIVO_SALIDA
+        ARCHIVO_HISTORICO
     )
+
+except PermissionError:
+
+    print()
+    print(
+        "ERROR: el Excel está abierto."
+    )
+
+    print(
+        "Cierra Control_Maquinas_Historico.xlsx"
+    )
+
+    input("\nPresiona Enter para cerrar...")
+    exit()
 
 except Exception as error:
 
     print()
     print(
-        "ERROR al guardar el Excel:"
+        "ERROR al guardar:"
     )
 
     print(error)
@@ -652,28 +784,28 @@ except Exception as error:
 
 
 # =========================================================
-# RESULTADO FINAL
+# RESULTADO
 # =========================================================
 
 print()
 print("==========================================")
+print("PROCESO TERMINADO")
+print("==========================================")
 
 print(
-    "PROCESO TERMINADO"
+    "Hoja actual:",
+    nombre_hoja_actual
 )
 
 print(
-    "Registros escritos en Excel:",
+    "Registros escritos:",
     total_actualizados
 )
 
 print()
 print(
-    "Archivo generado:"
-)
-
-print(
-    ARCHIVO_SALIDA
+    "Archivo:",
+    ARCHIVO_HISTORICO
 )
 
 print("==========================================")

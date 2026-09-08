@@ -246,11 +246,11 @@ async function cargarHistorial() {
                 <div class="registro-header">
 
                     <span>
-                        📅 ${registro.fecha || "-"}
+                         ${registro.fecha || "-"}
                     </span>
 
                     <span>
-                        🕒 ${registro.hora || "-"}
+                         ${registro.hora || "-"}
                     </span>
 
                 </div>
@@ -275,7 +275,7 @@ async function cargarHistorial() {
                     <div class="fila">
 
                         <strong>
-                            💧 Humedad
+                             Humedad
                         </strong>
 
                         <span>
@@ -288,7 +288,7 @@ async function cargarHistorial() {
                     <div class="fila">
 
                         <strong>
-                            📊 %L
+                             %L
                         </strong>
 
                         <span>
@@ -343,8 +343,9 @@ boton.addEventListener("click", async () => {
         Number(porcentajeLInput.value);
 
 
+
     // ===============================
-    // VALIDAR CAMPOS
+    // VALIDAR CAMPOS VACÍOS
     // ===============================
 
     if (
@@ -354,7 +355,51 @@ boton.addEventListener("click", async () => {
     ) {
 
         alert("Completa todos los campos");
+        return;
 
+    }
+
+
+    // ===============================
+    // VALIDAR TEMPERATURA
+    // ===============================
+
+    if (
+        temperatura < -50 ||
+        temperatura > 150
+    ) {
+
+        alert("La temperatura debe estar entre -50 °C y 150 °C");
+        return;
+
+    }
+
+
+    // ===============================
+    // VALIDAR HUMEDAD
+    // ===============================
+
+    if (
+        humedad < 0 ||
+        humedad > 100
+    ) {
+
+        alert("La humedad debe estar entre 0 % y 100 %");
+        return;
+
+    }
+
+
+    // ===============================
+    // VALIDAR %L
+    // ===============================
+
+    if (
+        porcentajeL < 0 ||
+        porcentajeL > 100
+    ) {
+
+        alert("%L debe estar entre 0 % y 100 %");
         return;
 
     }
